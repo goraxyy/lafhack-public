@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    // Lets lib/*.ts import siblings with an explicit .ts extension, so Node can
+    // run them directly in scripts/validate-processing-compat.mjs.
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  // supabase/functions holds Deno Edge Functions. They run on Deno with its
+  // own resolver, so `jsr:` and `https:` specifiers are valid there and
+  // unresolvable here -- typechecking them with the Next build fails on
+  // "Cannot find module 'jsr:@supabase/supabase-js@2'". They are deployed with
+  // `supabase functions deploy`, never bundled by Next.
+  "exclude": ["node_modules", "supabase/functions"]
+}
