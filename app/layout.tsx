@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 import { Nav } from '@/components/nav';
@@ -30,6 +30,15 @@ export const metadata: Metadata = {
   },
   description:
     'Projects made at Lafayette College, playable in the browser. Put your own work in front of people, or just play what everybody else has made.',
+};
+
+/**
+ * Paints the browser's own chrome to match: the address bar on Android, and
+ * the title bar once the site is installed. Separate from `metadata` since
+ * Next 14 moved theme colour into the viewport export.
+ */
+export const viewport: Viewport = {
+  themeColor: '#910029',
 };
 
 export default function RootLayout({

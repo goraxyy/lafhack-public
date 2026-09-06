@@ -1,24 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <!--
-    The favicon: the same mark components/code-mark.tsx draws beside the
-    wordmark, ink brackets and a maroon slash on white. Keep the two in step.
+    The browser-tab icon.
 
-    Two things here are deliberate, and both were bugs first.
+    A filled maroon tile with the mark knocked out in white, where
+    components/code-mark.tsx draws the same mark the other way round: ink
+    brackets and a maroon slash, directly on the page.
+
+    They differ on purpose. The header mark sits on a known white ground at
+    19px. A favicon sits at 16px on browser chrome whose colour belongs to the
+    browser, and the first version of this file was a white tile with thin dark
+    strokes: legible against a dark tab strip and all but invisible against a
+    light one, which is the common case. A filled ground reads on both.
+
+    Two things that were bugs before, and must stay this way:
 
     A viewBox and no width/height. With width="32" height="32" a rasteriser is
     entitled to draw it at 32 pixels and leave the rest of whatever box it was
     handed empty, which is what macOS's own renderer did: the mark sat in the
-    top-left corner of a 512px square. A viewBox alone scales to fill.
+    top-left corner of a 512px square.
 
     No double hyphen anywhere in this comment. XML forbids it inside a comment,
     and this repo's prose style reaches for one as an em dash by habit. It is
     not a warning here; it is a parse error, and the whole file fails to render.
   -->
   <title>LafHack</title>
-  <rect width="32" height="32" rx="6" fill="#ffffff" />
-  <g fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="11.5,10 6.6,16 11.5,22" stroke="#0A0A0A" />
-    <line x1="18.7" y1="9" x2="13.3" y2="23" stroke="#910029" />
-    <polyline points="20.5,10 25.4,16 20.5,22" stroke="#0A0A0A" />
+  <rect width="32" height="32" rx="7" fill="#910029" />
+  <g fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="11.6,10 6.8,16 11.6,22" />
+    <line x1="18.7" y1="9.2" x2="13.3" y2="22.8" />
+    <polyline points="20.4,10 25.2,16 20.4,22" />
   </g>
 </svg>
