@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getViewer } from '@/lib/admin';
@@ -12,7 +13,7 @@ import { STORAGE_BUCKET } from '@/lib/storage';
 export const runtime = 'nodejs';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   const viewer = await getViewer();
@@ -52,16 +53,36 @@ export async function GET(
   }
 
   const extension = project.thumbnail_path.split('.').pop() ?? '';
+  const bytes = Buffer.from(await file.arrayBuffer());
 
-  return new NextResponse(file, {
+  // Covers used to be served `max-age=0, must-revalidate` with nothing to
+  // revalidate against, so every gallery view re-downloaded every cover from
+  // Storage, through this function, in full. On a page of twenty sketches that
+  // is the slowest thing the gallery does and the largest line in the Storage
+  // egress bill.
+  //
+  // An ETag makes a repeat view a 304 with no body. The `?v=` that
+  // thumbnailUrl() puts on the URL is what allows the max-age underneath it:
+  // replacing a cover changes the row, which changes the URL, so a cached copy
+  // is never the stale one -- it is simply no longer asked for.
+  const etag = `"${createHash('sha256').update(bytes).digest('base64url').slice(0, 27)}"`;
+  const cacheControl = 'public, max-age=3600, stale-while-revalidate=86400';
+
+  if (request.headers.get('if-none-match') === etag) {
+    return new NextResponse(null, {
+      status: 304,
+      headers: { ETag: etag, 'Cache-Control': cacheControl },
+    });
+  }
+
+  return new NextResponse(bytes, {
     headers: {
       // From the extension, never file.type -- the stored type comes from
       // whatever the uploader declared, same hole the asset route had.
       'Content-Type': thumbnailContentType(extension),
       'X-Content-Type-Options': 'nosniff',
-      // Thumbnails are replaceable now, so a long cache would show a stale
-      // image after a change. Revalidate instead of guessing.
-      'Cache-Control': 'public, max-age=0, must-revalidate',
+      ETag: etag,
+      'Cache-Control': cacheControl,
     },
   });
 }

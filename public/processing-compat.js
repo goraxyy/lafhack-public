@@ -535,6 +535,92 @@
   }
 
   // -------------------------------------------------------------------------
+  // delay()
+  // -------------------------------------------------------------------------
+
+  // Processing.js does not implement delay(). It installs, on the default
+  // scope, a function whose whole body is `throw "Processing.js does not
+  // support delay()."` -- so a sketch that debounces a menu button with
+  // delay(200) dies on the player's first click, with no way to recover.
+  //
+  // JavaScript cannot sleep, so the only faithful stand-in is to hold the
+  // thread, which is what Processing does too: delay() blocks its animation
+  // thread. The difference is whose thread it is. Here it belongs to the tab,
+  // shared with the page around the sketch, so an uploaded sketch calling
+  // delay(600000) would freeze LafHack itself.
+  //
+  // Hence a budget rather than a bare spin: a single call holds for at most
+  // MAX_DELAY_CALL_MS, and across any DELAY_WINDOW_MS only DELAY_BUDGET_MS may
+  // be spent paused. Every real use -- a click debounce, a beat before a scene
+  // change -- passes untouched; nothing can pause the page indefinitely.
+
+  var MAX_DELAY_CALL_MS = 2000;
+  var DELAY_WINDOW_MS = 5000;
+  var DELAY_BUDGET_MS = 3000;
+
+  var delaySpent = 0;
+  var delayWindowStartedAt = 0;
+  var delayCapReported = false;
+
+  function delay(milliseconds) {
+    var requested = Number(milliseconds);
+    if (!isFinite(requested) || requested <= 0) return;
+
+    var startedAt = Date.now();
+
+    if (startedAt - delayWindowStartedAt >= DELAY_WINDOW_MS) {
+      delayWindowStartedAt = startedAt;
+      delaySpent = 0;
+    }
+
+    var granted = Math.min(requested, MAX_DELAY_CALL_MS, DELAY_BUDGET_MS - delaySpent);
+
+    if (granted < requested) {
+      reportDelayCap(requested, Math.max(granted, 0));
+    }
+
+    if (granted <= 0) return;
+
+    delaySpent += granted;
+
+    // A spin loop is the only synchronous wait a page has: Atomics.wait needs
+    // a cross-origin-isolated document, and anything promise-based would let
+    // the rest of draw() run before the pause was over, which is the one thing
+    // delay() exists to prevent.
+    var until = startedAt + granted;
+    while (Date.now() < until) {
+      /* hold the frame */
+    }
+  }
+
+  /** Said once per sketch: a capped delay() usually repeats every frame. */
+  function reportDelayCap(requested, granted) {
+    if (delayCapReported) return;
+    delayCapReported = true;
+
+    if (global.console && global.console.warn) {
+      global.console.warn(
+        'delay(' + requested + ') ran for ' + granted + 'ms. A sketch shares ' +
+          'the page it plays on, so it may pause for at most ' +
+          MAX_DELAY_CALL_MS + 'ms at a time and ' + DELAY_BUDGET_MS +
+          'ms out of every ' + DELAY_WINDOW_MS + 'ms.'
+      );
+    }
+  }
+
+  /**
+   * The parser decides how to compile a bare `delay(200)` by looking the name
+   * up on the default scope, then emits `$p.delay(200)`. So the replacement
+   * has to overwrite that property -- putting a delay() on `window`, or
+   * deleting the thrower, would leave the call unresolved instead.
+   */
+  function installDelay() {
+    if (global.Processing && global.Processing.prototype) {
+      global.Processing.prototype.delay = delay;
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // bootstrap
   // -------------------------------------------------------------------------
 
@@ -592,6 +678,7 @@
         }
 
         silenceOnPageConsole();
+        installDelay();
 
         var instance = new global.Processing(options.canvas, source);
         adoptStatics(instance);
@@ -639,6 +726,7 @@
 
   global.ProcessingCompat = {
     run: run,
+    delay: delay,
     Table: Table,
     TableRow: TableRow,
     SoundFile: SoundFile,

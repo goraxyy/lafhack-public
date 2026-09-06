@@ -45,6 +45,10 @@ export interface Project {
   reviewed_at: string | null;
   review_notes: string | null;
 
+  /** Set when an admin clears a failed compile off the dashboard. */
+  failure_cleared_at: string | null;
+  failure_cleared_by: string | null;
+
   thumbnail_path: string | null;
   author_name: string | null;
   collaborators: string[];
@@ -153,8 +157,31 @@ export function formatTerm(project: {
   return project.semester;
 }
 
-export function thumbnailUrl(project: { id: string; thumbnail_path: string | null }): string | null {
-  return project.thumbnail_path ? `/api/projects/${project.id}/thumbnail` : null;
+/**
+ * Where to fetch a project's cover, or null when it has none.
+ *
+ * The `v` is what lets the cover be cached at all. The route cannot serve a
+ * long max-age from a fixed URL, because a cover can be replaced and every
+ * viewer would keep the old one; a URL that changes when the row does can be
+ * cached hard and simply stops being asked for.
+ *
+ * `updated_at` is a blunter key than it looks -- recording a play writes to the
+ * row, so a popular sketch's cover URL changes more often than its cover does.
+ * The route's ETag makes that cost a 304 rather than a re-download. A
+ * dedicated thumbnail version column would be the tidy fix; see
+ * SYSTEM_DESIGN.md.
+ */
+export function thumbnailUrl(project: {
+  id: string;
+  thumbnail_path: string | null;
+  updated_at?: string;
+}): string | null {
+  if (!project.thumbnail_path) return null;
+
+  const version = project.updated_at ? Date.parse(project.updated_at) : NaN;
+  const suffix = Number.isFinite(version) ? `?v=${version}` : '';
+
+  return `/api/projects/${project.id}/thumbnail${suffix}`;
 }
 
 /** Longest feedback message the footer box accepts. */

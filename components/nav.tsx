@@ -24,7 +24,13 @@ export function Nav() {
 
         <nav aria-label="Primary" className="hidden items-center gap-8 md:flex">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm font-medium text-ink-500 transition-colors hover:text-ink">
+            <Link
+              key={link.href}
+              href={link.href}
+              // Uppercase with open tracking: Lafayette sets its own navigation in
+              // small caps, and this is the closest read without licensing Whitney.
+              className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-500 transition-colors hover:text-accent"
+            >
               {link.label}
             </Link>
           ))}
@@ -36,14 +42,14 @@ export function Nav() {
           ) : user ? (
             <>
               {isAdmin && (
-                <Link href="/admin" className="text-sm font-medium text-ink-500 transition-colors hover:text-ink">Admin</Link>
+                <Link href="/admin" className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-500 transition-colors hover:text-accent">Admin</Link>
               )}
-              <Link href="/profile" className="text-sm font-medium text-ink-500 transition-colors hover:text-ink">Profile</Link>
+              <Link href="/profile" className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-500 transition-colors hover:text-accent">Profile</Link>
             </>
           ) : (
             <>
-              <Link href="/login" className="text-sm font-medium text-ink-500 transition-colors hover:text-ink">Log in</Link>
-              <Link href="/signup" className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-ink-700">Sign up</Link>
+              <Link href="/login" className="text-xs font-semibold uppercase tracking-[0.08em] text-ink-500 transition-colors hover:text-accent">Log in</Link>
+              <Link href="/signup" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-700">Sign up</Link>
             </>
           )}
         </div>

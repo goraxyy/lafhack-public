@@ -38,7 +38,7 @@ export default async function ReviewPage({
         Admin
       </Link>
 
-      <h1 className="mt-4 text-3xl font-semibold text-ink">Review queue</h1>
+      <h1 className="font-display mt-4 text-3xl font-semibold text-ink">Review queue</h1>
       <p className="mt-2 max-w-2xl text-ink-500">
         Play each sketch here before deciding. Approving it publishes it to the gallery;
         nothing reaches the gallery any other way.
@@ -60,7 +60,7 @@ export default async function ReviewPage({
         ))}
       </div>
 
-      <ReviewQueue projects={projects} />
+      <ReviewQueue projects={projects} status={active} />
     </div>
   );
 }

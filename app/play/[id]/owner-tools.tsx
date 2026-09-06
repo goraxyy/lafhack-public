@@ -79,7 +79,7 @@ export function OwnerTools({ projectId, canRetryCompile }: OwnerToolsProps) {
 
   return (
     <div className="mt-6 rounded-lg border border-ink-100 p-4">
-      <h2 className="text-sm font-medium text-ink">Your sketch</h2>
+      <h2 className="font-display text-sm font-semibold text-ink">Your sketch</h2>
       <p className="mt-1 text-xs text-ink-500">Only you and admins can see these controls.</p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

@@ -8,11 +8,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getViewer } from '@/lib/admin';
 import {
   ensureAllowedExtension,
+  isIgnorableUploadPath,
   MAX_SINGLE_FILE_BYTES,
   MAX_TOTAL_UPLOAD_BYTES,
   sanitizeRelativePath,
 } from '@/lib/uploadSecurity';
 import { STORAGE_BUCKET } from '@/lib/storage';
+import { clearStoragePrefix, listAllFiles } from '@/lib/storageCleanup';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -118,6 +120,11 @@ export async function POST(
     .update({ status: 'queued', error_message: null })
     .eq('id', projectId);
 
+  // Reported back to the uploader: a sketch whose data/ is incomplete still
+  // compiles, and nobody should have to work out from a blank canvas that one
+  // image never made it into the folder.
+  let missingAssets: string[] = [];
+
   try {
     await adminClient
       .from('projects')
@@ -141,6 +148,8 @@ export async function POST(
 
       // Individually missing assets still 404 at play time. Say so here, so the
       // cause is in the logs rather than only in the browser's network tab.
+      missingAssets = compileResult.missingAssets ?? [];
+
       if (compileResult.missingAssets?.length) {
         console.warn('Sketch references assets missing from data/:', {
           projectId,
@@ -188,7 +197,7 @@ export async function POST(
       await fs.rm(tempRoot, { recursive: true, force: true });
     }
 
-    return NextResponse.json({ projectId, status: 'ready' });
+    return NextResponse.json({ projectId, status: 'ready', missingAssets });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Project processing failed.';
 
@@ -221,7 +230,9 @@ async function downloadUploadedInput(
 
   // Validate every path before fetching anything, so a bad name fails fast
   // rather than after a dozen downloads.
-  const planned = sourceFiles.map((objectPath) => {
+  const planned = sourceFiles
+    .filter((objectPath) => !isIgnorableUploadPath(objectPath.slice(`${rawPrefix}/source/`.length)))
+    .map((objectPath) => {
     const relativePath = sanitizeRelativePath(objectPath.slice(`${rawPrefix}/source/`.length));
     ensureAllowedExtension(relativePath);
     return { objectPath, relativePath };
@@ -275,6 +286,12 @@ async function extractArchiveFromStorage(
 
   for (const [entryName, zipEntry] of Object.entries(zip.files)) {
     if (zipEntry.dir) {
+      continue;
+    }
+
+    // A Finder-made zip carries __MACOSX/ and .DS_Store throughout. Skipping
+    // them here is what stops a perfectly good sketch failing to extract.
+    if (isIgnorableUploadPath(entryName)) {
       continue;
     }
 
@@ -356,61 +373,4 @@ function safeJoin(baseDir: string, relativePath: string): string {
   }
 
   return destination;
-}
-
-async function clearStoragePrefix(
-  adminClient: ReturnType<typeof createAdminClient>,
-  prefix: string
-): Promise<void> {
-  const existing = await listAllFiles(adminClient, prefix);
-  if (existing.length === 0) {
-    return;
-  }
-
-  const chunkSize = 100;
-  for (let i = 0; i < existing.length; i += chunkSize) {
-    const chunk = existing.slice(i, i + chunkSize);
-    const { error } = await adminClient.storage.from(STORAGE_BUCKET).remove(chunk);
-    if (error) {
-      throw new Error(`Failed to clear previous output: ${error.message}`);
-    }
-  }
-}
-
-async function listAllFiles(
-  adminClient: ReturnType<typeof createAdminClient>,
-  prefix: string
-): Promise<string[]> {
-  const queue = [prefix.replace(/^\/+|\/+$/g, '')];
-  const files: string[] = [];
-
-  while (queue.length > 0) {
-    const currentPrefix = queue.shift();
-    if (!currentPrefix) {
-      continue;
-    }
-
-    const { data, error } = await adminClient.storage.from(STORAGE_BUCKET).list(currentPrefix, {
-      limit: 1000,
-      offset: 0,
-    });
-
-    if (error) {
-      if (error.message?.toLowerCase().includes('not found')) {
-        continue;
-      }
-      throw new Error(`Failed to list storage path ${currentPrefix}: ${error.message}`);
-    }
-
-    for (const item of data ?? []) {
-      const fullPath = `${currentPrefix}/${item.name}`;
-      if ((item as { id: string | null }).id === null) {
-        queue.push(fullPath);
-      } else {
-        files.push(fullPath);
-      }
-    }
-  }
-
-  return files;
 }

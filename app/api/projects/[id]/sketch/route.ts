@@ -138,6 +138,57 @@ export async function GET(
           window.ProcessingCompat.setMasterVolume(level);
         });
 
+        // The sketch decides its own size(), and the frame around it cannot
+        // know what that is until the sketch has run.
+        //
+        // Watching for it is the whole difficulty. Sketches with a @pjs
+        // preload directive do not reach setup() until their images have
+        // loaded, so the canvas is still the default 300x150 when
+        // ProcessingCompat.run() resolves -- reporting once, there, pins the
+        // frame at the wrong size. A ResizeObserver catches the change when
+        // it comes, but only while the page is being rendered; a tab in the
+        // background delivers nothing.
+        //
+        // So: both, plus a bounded poll that does not depend on either. Sizes
+        // are deduplicated, so the repeats cost one comparison and the parent
+        // hears only about real changes.
+        var lastReported = '';
+
+        function reportSize() {
+          if (window.parent === window) return;
+
+          var canvas = document.getElementById('sketch');
+          var width = canvas.offsetWidth || canvas.width;
+          var height = canvas.offsetHeight || canvas.height;
+          if (!width || !height) return;
+
+          var key = width + 'x' + height;
+          if (key === lastReported) return;
+          lastReported = key;
+
+          window.parent.postMessage(
+            { type: 'lafhack:size', width: width, height: height },
+            window.location.origin
+          );
+        }
+
+        function watchSize() {
+          reportSize();
+
+          if (window.ResizeObserver) {
+            new ResizeObserver(reportSize).observe(document.getElementById('sketch'));
+          }
+
+          // Ten seconds is longer than any preload worth waiting for, and the
+          // observer above covers a sketch that resizes itself after that.
+          var polls = 0;
+          var timer = setInterval(function () {
+            reportSize();
+            polls += 1;
+            if (polls >= 40) clearInterval(timer);
+          }, 250);
+        }
+
         window.ProcessingCompat.run({
           canvas: document.getElementById('sketch'),
           bundleUrl: ${scriptJson(bundleUrl)},
@@ -146,7 +197,7 @@ export async function GET(
           onError: function (error) {
             report(error.message, error.stack ? String(error.stack) : '');
           }
-        });
+        }).then(watchSize);
       }());
     </script>
   </body>

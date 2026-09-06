@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { SEMESTERS, type Semester } from '@/lib/types';
 import {
   ensureAllowedExtension,
+  isIgnorableUploadPath,
   ensureThumbnailFile,
   MAX_FILES_PER_UPLOAD,
   MAX_SINGLE_FILE_BYTES,
@@ -112,7 +113,11 @@ export async function POST(request: NextRequest) {
     let totalBytes = 0;
 
     if (uploadMode === 'folder') {
-      const files = payload.files ?? [];
+      // Dropped rather than rejected: the client already filters these, but a
+      // stale tab or a direct caller should not fail over a .DS_Store either.
+      const files = (payload.files ?? []).filter(
+        (file) => !isIgnorableUploadPath(file.relativePath ?? '')
+      );
       if (files.length === 0) {
         return NextResponse.json({ error: 'Please select at least one file.' }, { status: 400 });
       }

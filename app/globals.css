@@ -5,6 +5,9 @@
 :root {
   --ink: #0a0a0a;
   --border: #e5e5e5;
+  /* Lafayette maroon. Mirrors theme.accent in tailwind.config.ts, which CSS
+     here cannot reach. */
+  --accent: #910029;
 }
 
 html {
@@ -22,6 +25,6 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

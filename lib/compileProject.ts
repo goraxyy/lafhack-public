@@ -5,6 +5,11 @@ import {
   countTopLevelDefinitions,
   makeProcessingJsCompatible,
 } from './processingCompat.ts';
+import {
+  findSketchFolders,
+  multipleSketchFoldersMessage,
+  multipleSketchesInOneFolderMessage,
+} from './sketchLayout.ts';
 
 export interface CompileResult {
   success: boolean;
@@ -37,12 +42,22 @@ export async function compileProject(
   outputDir: string
 ): Promise<CompileResult> {
   try {
-    const sketchRoot = await detectSketchRoot(inputDir);
+    const allFiles = await walkDir(inputDir, inputDir);
+
+    const sketchRoot = detectSketchRoot(inputDir, allFiles);
     if (!sketchRoot) {
       return {
         success: false,
         error: 'No .pde or .java files found in the uploaded project. Nothing to compile.',
       };
+    }
+
+    // A .pde in a second folder is a second sketch. Compiling one of them and
+    // dropping the rest is what this used to do, and it looked like the upload
+    // had simply lost them.
+    const sketchFolders = findSketchFolders(allFiles);
+    if (sketchFolders.length > 1) {
+      return { success: false, error: multipleSketchFoldersMessage(sketchFolders) };
     }
 
     const sourceFiles = await listSourceFiles(sketchRoot);
@@ -89,6 +104,25 @@ export async function compileProject(
       });
     }
 
+    // Two tabs that each define setup() *and* draw() are two sketches that
+    // happen to share a folder, not one sketch with a duplicate method. Both
+    // are refused below, but only this one is fixed by uploading separately,
+    // so it is worth telling apart.
+    const standaloneSketches = pdeTabs.filter(
+      (tab) =>
+        countTopLevelDefinitions(tab.content, 'setup') > 0 &&
+        countTopLevelDefinitions(tab.content, 'draw') > 0
+    );
+
+    if (standaloneSketches.length > 1) {
+      return {
+        success: false,
+        error: multipleSketchesInOneFolderMessage(
+          standaloneSketches.map((tab) => path.basename(tab.fileName))
+        ),
+      };
+    }
+
     let mainFileName: string | null = null;
     const sketchPropertiesPath = path.join(sketchRoot, SKETCH_PROPERTIES);
 
@@ -125,10 +159,11 @@ export async function compileProject(
       };
     }
 
-    // Tabs are concatenated into one class, so two setup() or draw() bodies is
-    // a duplicate method -- Processing rejects it, and Processing.js fails at
-    // run time with a stack trace the uploader cannot act on. Say it here
-    // instead, naming the files.
+    // What is left is a real duplicate method: setup() twice in one tab, or a
+    // second tab that redefines setup() without a draw() of its own. Tabs are
+    // concatenated into one class, so Processing rejects it too, and
+    // Processing.js fails at run time with a stack trace the uploader cannot
+    // act on. Say it here instead, naming the files.
     for (const functionName of ['setup', 'draw']) {
       const definedIn = pdeTabs.filter(
         (tab) => countTopLevelDefinitions(tab.content, functionName) > 0
@@ -198,16 +233,17 @@ export async function compileProject(
       // no data directory
     }
 
-    // A sketch that loads assets but shipped without them is broken on every
-    // frame, and used to fail silently: the bundle compiled, the project went
-    // `ready`, and each asset 404'd at play time with nothing in the logs.
     const referenced = [...compat.images, ...compat.fonts, ...compat.tables];
 
     const missingAssets = copiedData
       ? await filterMissing(outputDataDir, referenced)
       : referenced;
 
-    if (referenced.length > 0 && missingAssets.length === referenced.length) {
+    // Only one situation is worth refusing: the sketch reads from data/ and
+    // there is no data/ at all. That means the wrong folder was uploaded --
+    // the sketch's parent, or the tabs on their own -- and no amount of
+    // retrying the player will fix it.
+    if (referenced.length > 0 && !copiedData) {
       return {
         success: false,
         error:
@@ -218,6 +254,15 @@ export async function compileProject(
           `Upload the sketch folder itself, so that data/ sits beside the .pde files.`,
       };
     }
+
+    // A data/ folder that is merely incomplete is not a compile failure. This
+    // used to refuse the upload whenever *every* referenced asset happened to
+    // be missing, and blamed it on data/ being absent -- so a sketch whose
+    // data/ was found and copied, with one image missing from it, was told its
+    // data folder did not exist. Processing itself runs such a sketch, drawing
+    // nothing where the image should be, so refusing it here was both the
+    // wrong diagnosis and stricter than the tool being emulated. The names come
+    // back in `missingAssets` for the caller to report.
 
     return {
       success: true,
@@ -244,9 +289,7 @@ export async function compileProject(
  * `data/` resolve one level too high, so it was silently skipped: the bundle
  * compiled, the project went `ready`, and every asset 404'd at play time.
  */
-async function detectSketchRoot(inputDir: string): Promise<string | null> {
-  const allFiles = await walkDir(inputDir, inputDir);
-
+function detectSketchRoot(inputDir: string, allFiles: string[]): string | null {
   const sourceFiles = allFiles.filter((filePath) => {
     const lower = filePath.toLowerCase();
     return lower.endsWith(PDE_EXT) || lower.endsWith(JAVA_EXT);

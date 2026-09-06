@@ -158,6 +158,37 @@ export function contentTypeFor(filePath: string): string {
   return (extension && CONTENT_TYPES[extension]) || 'application/octet-stream';
 }
 
+/**
+ * Paths the operating system adds that are not part of anyone's sketch.
+ *
+ * Every folder a Mac has ever opened contains `.DS_Store`, and zipping one in
+ * Finder adds an `__MACOSX/` tree of `._` resource forks alongside it. None of
+ * it belongs to the sketch, and none of it survives the filename rules below.
+ *
+ * They are dropped rather than rejected. Failing an upload because Finder left
+ * a file the student cannot see, and would not know to delete, is a dead end:
+ * the sketch runs perfectly in Processing, so the error reads as LafHack being
+ * broken.
+ */
+const IGNORED_FILE_NAMES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini']);
+const IGNORED_DIRECTORIES = new Set(['__macosx', '.git', '.svn', '__pycache__']);
+
+export function isIgnorableUploadPath(inputPath: string): boolean {
+  const segments = inputPath.replace(/\\+/g, '/').split('/').filter(Boolean);
+
+  return segments.some((segment, index) => {
+    const lower = segment.toLowerCase();
+
+    if (IGNORED_DIRECTORIES.has(lower)) return true;
+    // AppleDouble resource forks, always beside the file they shadow.
+    if (segment.startsWith('._')) return true;
+    // A trailing name is the file itself; anything earlier is a directory.
+    if (index === segments.length - 1 && IGNORED_FILE_NAMES.has(lower)) return true;
+
+    return false;
+  });
+}
+
 export function sanitizeRelativePath(inputPath: string): string {
   const normalized = inputPath.replace(/\\+/g, '/').replace(/^\.\//, '').trim();
 

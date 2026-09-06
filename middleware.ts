@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { sessionExpiry } from '@/lib/sessionCookie';
 
 /**
  * Keeps the Supabase auth cookies fresh for server-side code.
@@ -26,6 +27,23 @@ export async function middleware(request: NextRequest) {
   // through rather than 500ing every route.
   if (!url || !anonKey) return response;
 
+  // The refresh below is a network round trip to Supabase Auth, and it used to
+  // happen on every single navigation -- ahead of the page's own queries, so it
+  // was pure latency in front of every render. Two cases do not need it:
+  //
+  //   1. Nobody is signed in. There is no token, so there is nothing to
+  //      refresh. Most gallery traffic is signed out and now pays nothing.
+  //   2. The access token is nowhere near expiring. Refreshing an hour-long
+  //      token on every click buys nothing.
+  //
+  // This is not a security shortcut. Nothing here decides access: every page
+  // and route calls getViewer(), which validates the token with the auth
+  // server. Skipping only means the cookie is left as it was found.
+  const expiry = sessionExpiry(request.cookies.getAll());
+
+  if (expiry === 'absent') return response;
+  if (expiry !== 'unknown' && expiry - Date.now() > REFRESH_MARGIN_MS) return response;
+
   const supabase = createServerClient(url, anonKey, {
     cookies: {
       getAll() {
@@ -45,6 +63,9 @@ export async function middleware(request: NextRequest) {
 
   return response;
 }
+
+/** Refresh once the token has this much life left, so it never lapses mid-visit. */
+const REFRESH_MARGIN_MS = 10 * 60 * 1000;
 
 export const config = {
   matcher: [

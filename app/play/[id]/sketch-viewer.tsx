@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Clock,
   Loader2,
+  Trash2,
   Volume2,
   VolumeX,
   type LucideIcon,
@@ -19,6 +20,19 @@ export function SketchViewer({
   /** False for owner/admin previews of an unapproved sketch. */
   countsAsPlay: boolean;
 }) {
+  // A rejected sketch has had its files deleted, so there is nothing to run.
+  // Without this it falls through to "Still processing", which is both wrong
+  // and implies the sketch is coming back.
+  if (project.review_status === 'rejected') {
+    return (
+      <Placeholder tone="error" icon={Trash2} title="This sketch was removed in review.">
+        {project.review_notes
+          ? `Reviewer's note: ${project.review_notes}`
+          : 'Its files have been deleted. Upload it again if you want another look.'}
+      </Placeholder>
+    );
+  }
+
   if (project.status === 'failed' || project.status === 'error') {
     return (
       <Placeholder tone="error" icon={AlertTriangle} title="This sketch failed to compile.">
@@ -51,8 +65,46 @@ function Player({
   const frame = useRef<HTMLIFrameElement>(null);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
 
   const effective = muted ? 0 : volume;
+
+  // A sketch is a fixed-size canvas -- size(550, 625) here, size(400, 400)
+  // there -- and the frame used to be a flat 600px tall whatever it held. So a
+  // tall sketch had its bottom cut off and a small one sat in a field of black.
+  // The sketch reports its own size once it has run; until then the fallback
+  // below stands in.
+  //
+  // The frame is sized to the sketch rather than the sketch scaled to the
+  // frame: Processing.js reads mouseX/mouseY off the canvas's own coordinates,
+  // so a CSS-scaled canvas would put every click in the wrong place.
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.source !== frame.current?.contentWindow) return;
+
+      const data = event.data as { type?: string; width?: unknown; height?: unknown };
+      if (!data || data.type !== 'lafhack:size') return;
+
+      const width = Number(data.width);
+      const height = Number(data.height);
+
+      // Nothing here is trusted enough to become a style attribute unchecked:
+      // the sketch is uploaded code, and the page it runs on is its own.
+      if (!Number.isFinite(width) || !Number.isFinite(height)) return;
+      if (width < 1 || height < 1 || width > 4000 || height > 4000) return;
+
+      setSize((current) => {
+        const next = { width: Math.round(width), height: Math.round(height) };
+        return current && current.width === next.width && current.height === next.height
+          ? current
+          : next;
+      });
+    }
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   // The sketch shim owns the actual <audio> elements, so the level is sent in
   // rather than set here. Same-origin only, and re-sent whenever it changes so
@@ -71,15 +123,24 @@ function Player({
   return (
     <div className="overflow-hidden rounded-lg border border-ink-100 bg-ink">
       <RecordPlay projectId={project.id} enabled={countsAsPlay} />
-      <iframe
-        ref={frame}
-        src={`/api/projects/${project.id}/sketch`}
-        title={project.title}
-        className="h-[600px] w-full border-0 bg-white"
-        sandbox="allow-scripts allow-same-origin"
-        // The sketch only learns the level once it has loaded its shim.
-        onLoad={() => send(effective)}
-      />
+      {/* Scrolls sideways rather than shrinking, for a sketch wider than the
+          page: a cut-off edge is recoverable, misplaced clicks are not. */}
+      <div className="overflow-x-auto">
+        <iframe
+          ref={frame}
+          src={`/api/projects/${project.id}/sketch`}
+          title={project.title}
+          className={
+            size
+              ? 'mx-auto block max-w-none border-0 bg-white'
+              : 'block h-[600px] w-full border-0 bg-white'
+          }
+          style={size ? { width: size.width, height: size.height } : undefined}
+          sandbox="allow-scripts allow-same-origin"
+          // The sketch only learns the level once it has loaded its shim.
+          onLoad={() => send(effective)}
+        />
+      </div>
 
       <div className="flex items-center gap-3 border-t border-ink-700 px-4 py-2.5">
         <button

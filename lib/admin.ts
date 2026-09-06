@@ -1,4 +1,5 @@
 import 'server-only';
+import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient as createUserClient } from '@/lib/supabase/server';
 import type { Profile, UserRole } from '@/lib/types';
@@ -15,8 +16,12 @@ export interface Viewer {
  * The role is read with the service-role client on purpose: the `profiles`
  * RLS policies are for client-side reads, and every server route here already
  * decides access itself.
+ *
+ * Two Supabase round trips -- validate the token, then read the role -- so it
+ * is memoised for the length of one request. `isAdmin()` calls it, pages call
+ * it, and a page that does both would otherwise pay for all four.
  */
-export async function getViewer(): Promise<Viewer | null> {
+export const getViewer = cache(async (): Promise<Viewer | null> => {
   const userClient = await createUserClient();
   const {
     data: { user },
@@ -50,7 +55,7 @@ export async function getViewer(): Promise<Viewer | null> {
     email: user.email ?? null,
     role: profile?.role === 'admin' ? 'admin' : 'user',
   };
-}
+});
 
 export async function isAdmin(): Promise<boolean> {
   const viewer = await getViewer();

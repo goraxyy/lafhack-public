@@ -54,7 +54,7 @@ export default async function PlayProjectPage({
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">{project.title}</h1>
+          <h1 className="font-display text-2xl font-semibold text-ink">{project.title}</h1>
           <p className="mt-1 text-sm text-ink-500">
             {project.author_name ?? 'Unknown author'}
             {term ? ` · ${term}` : ''}
@@ -106,7 +106,7 @@ export default async function PlayProjectPage({
         <div className="lg:col-span-2">
           {project.description && (
             <>
-              <h2 className="text-sm font-medium text-ink">About</h2>
+              <h2 className="font-display text-sm font-semibold text-ink">About</h2>
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-500">
                 {project.description}
               </p>

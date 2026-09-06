@@ -1,16 +1,21 @@
 # LafHack
 
-Upload a Processing sketch, get a link that plays it in the browser.
+Projects made at Lafayette College, playable in the browser.
 
 Processing is what a lot of people write their first real program in — an
-animation, a game, something with sound. Then the course ends and the work
-disappears, because sharing it means asking someone to install Processing and
-open a folder of `.pde` files. LafHack exists so a sketch can be a URL instead.
+animation, a game, something with sound. Then the course ends and the work goes
+quiet, because showing it to anyone means asking them to install Processing and
+open a folder of `.pde` files. LafHack exists so a project can be a URL
+instead: uploaded once, played by anyone with the link, and credited to whoever
+made it.
+
+Processing is what runs today. Unity builds, static sites and research projects
+are the shape of the thing next.
 
 **This repository is a reading copy of the source.** It is published so the
 code can be looked at. It is not runnable: the database schema, the migrations,
-the storage configuration and the environment templates are not included, and
-no credentials are published. See the licence at the bottom.
+the storage configuration, the CI workflows and the environment templates are
+not included, and no credentials are published. See the licence at the bottom.
 
 ---
 
@@ -35,9 +40,15 @@ possible at all.
 a folder as one class, so the first job is finding the real sketch. It reads
 `sketch.properties` if there is one, otherwise looks for the tab that defines
 both `setup()` and `draw()`. `.java` tabs come along as supplementary classes,
-which is what they are in Processing. Two tabs both defining `setup()` is a
-duplicate method and is rejected here with the filenames, rather than surfacing
-in the browser later as a stack trace nobody can act on.
+which is what they are in Processing.
+
+Most of this file exists because of what real uploads turn out to look like.
+Finder's leftovers — `__MACOSX/` resource forks, `.DS_Store` at every level —
+are filtered ahead of the filename rules rather than tripping them. A folder
+holding several sketches, which Processing cannot merge and this used to
+silently pick one of, is refused by name (`lib/sketchLayout.ts`). A `data/`
+folder that exists but is missing one image compiles and reports the gap,
+because that is what Processing itself does.
 
 **3. Make it browser-compatible** — `lib/processingCompat.ts`. Processing.js
 is an old, incomplete Java. This pass rewrites what it cannot take:
@@ -62,20 +73,30 @@ sandboxed iframe with its own Content-Security-Policy. `'unsafe-eval'` is
 unavoidable, since Processing.js compiles sketches with `new Function()`, so
 the containment is everything around it: `default-src 'none'`, and
 `connect-src 'self'` so a sketch has nowhere to send anything it reads. Assets
-are proxied through an authenticated route rather than served publicly.
+are proxied through an authorised route rather than served publicly.
 
-`processing.sound.SoundFile` is shimmed over an HTML5 `<audio>` element,
-including the retry hook browsers need because autoplay is blocked until the
-viewer interacts with the page. The player has a volume control, which reaches
-sounds a sketch creates after start-up and multiplies rather than replaces the
-sketch's own `amp()` levels.
+Two gaps in Processing.js are filled at run time in `public/processing-compat.js`:
+
+- `processing.sound.SoundFile` is shimmed over an HTML5 `<audio>` element,
+  including the retry hook browsers need because autoplay is blocked until the
+  viewer interacts with the page.
+- `delay()` — which Processing.js ships as a function whose whole body throws —
+  becomes a real pause. JavaScript cannot sleep, so it holds the thread, which
+  is what Processing does too; the difference is that here the thread belongs
+  to the page, so it comes with a budget no sketch can exceed.
+
+The frame around the sketch sizes itself to whatever `size()` the sketch asked
+for, reported up over `postMessage`. The sketch is not scaled to fit the frame,
+because Processing.js reads `mouseX`/`mouseY` from the canvas's own
+coordinates and a scaled canvas would put every click in the wrong place.
 
 ## The rest of it
 
 **Review before publication.** Nothing reaches the gallery until an admin has
 opened it and approved it. Approval gates the public, not the author — an
 uploader can play their own sketch while it waits, and an admin has to be able
-to play it in order to review it at all.
+to play it in order to review it at all. Rejecting deletes the sketch's files;
+a decided review is final, and its notes are the record of why.
 
 **Uploads are treated as hostile.** An extension allowlist, per-file and total
 size caps, a file-count cap, path-traversal checks on both the write and the
