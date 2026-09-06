@@ -22,7 +22,7 @@ export function HeroCta() {
       {!loading &&
         (user ? (
           <ButtonLink href="/upload" variant="secondary">
-            Upload a sketch
+            Upload a project
           </ButtonLink>
         ) : (
           <ButtonLink href="/signup" variant="secondary">
@@ -33,26 +33,32 @@ export function HeroCta() {
   );
 }
 
-/** The closing banner, which is a signup pitch until you have signed up. */
+/**
+ * The closing banner, which is a signup pitch until you have signed up.
+ *
+ * Signed out it says what an account is *for* -- putting your own work in
+ * front of people -- and that browsing needs no account, because most visitors
+ * are here to play rather than to upload.
+ */
 export function ClosingCta() {
   const { user, loading } = useAuth();
   const signedIn = !loading && Boolean(user);
 
   return (
-    <div className="flex flex-col items-start justify-between gap-6 rounded-lg border border-ink-100 p-10 sm:flex-row sm:items-center">
+    <div className="flex flex-col items-start justify-between gap-6 rounded-lg border border-l-2 border-ink-100 border-l-accent p-10 sm:flex-row sm:items-center">
       <div>
-        <h2 className="text-2xl font-semibold text-ink">
-          {signedIn ? 'Ready to publish your next sketch?' : 'Ready to publish your first sketch?'}
+        <h2 className="font-display text-2xl font-semibold text-ink">
+          {signedIn ? 'Got something else to show?' : 'Let people play what you made.'}
         </h2>
         <p className="mt-2 text-ink-500">
           {signedIn
-            ? 'Drop in a folder or a ZIP and it is playable in minutes.'
-            : 'Sign up and upload a project in minutes.'}
+            ? 'Drop in a folder or a ZIP and people can be playing it in minutes.'
+            : 'An account is for putting your own work up. Playing what is already here needs nothing at all.'}
         </p>
       </div>
 
       <ButtonLink href={signedIn ? '/upload' : '/signup'} variant="primary" className="shrink-0">
-        {signedIn ? 'Upload a sketch' : 'Get started'}
+        {signedIn ? 'Upload a project' : 'Get started'}
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </ButtonLink>
     </div>

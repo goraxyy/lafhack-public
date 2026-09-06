@@ -4,7 +4,10 @@ import type { ProjectStatus, ReviewStatus } from '@/lib/types';
 const STATUS_STYLES: Record<ProjectStatus, string> = {
   uploading: 'bg-blue-50 text-blue-700 border-blue-600/20',
   queued: 'bg-amber-50 text-amber-700 border-amber-600/20',
-  ready: 'bg-accent-50 text-accent-700 border-accent-600/20',
+  // Green, not the accent. "Ready" is the good outcome, and once the accent
+  // became Lafayette maroon this badge read as an error sitting next to the
+  // genuinely red "Failed" one.
+  ready: 'bg-green-50 text-green-700 border-green-600/20',
   processing: 'bg-ink-50 text-ink-500 border-ink-100',
   failed: 'bg-red-50 text-red-700 border-red-600/20',
   error: 'bg-red-50 text-red-700 border-red-600/20',

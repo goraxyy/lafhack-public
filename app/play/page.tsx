@@ -55,7 +55,7 @@ export default async function PlayHubPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="max-w-2xl">
-        <h1 className="text-3xl font-semibold text-ink">Your play hub</h1>
+        <h1 className="font-display text-3xl font-semibold text-ink">Your play hub</h1>
         <p className="mt-2 text-ink-500">
           Favorites and recent games, kept close so you can jump straight back in.
         </p>
@@ -104,7 +104,7 @@ async function SignedOutHub() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <div className="max-w-2xl">
-        <h1 className="text-3xl font-semibold text-ink">Play</h1>
+        <h1 className="font-display text-3xl font-semibold text-ink">Play</h1>
         <p className="mt-2 text-ink-500">
           <Link href="/login" className="font-medium text-accent hover:underline">
             Log in
@@ -139,7 +139,7 @@ function EmptyHub() {
       </div>
       <Link
         href="/gallery"
-        className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-white hover:bg-ink-700"
+        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-700"
       >
         Browse the gallery
       </Link>
@@ -165,7 +165,7 @@ function Section({
   return (
     <section>
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-medium text-ink">
+        <h2 className="font-display flex items-center gap-2 text-lg font-semibold text-ink">
           <Icon className="h-4 w-4 text-ink-300" />
           {title}
           {cards.length > 0 && (

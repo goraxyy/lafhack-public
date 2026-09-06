@@ -80,7 +80,7 @@ export function NavMobileMenu({
                 <Link
                   href="/signup"
                   onClick={() => setOpen(false)}
-                  className="flex-1 rounded-md bg-ink px-3 py-2 text-center text-sm font-medium text-white"
+                  className="flex-1 rounded-md bg-accent px-3 py-2 text-center text-sm font-medium text-white"
                 >
                   Sign up
                 </Link>

@@ -40,7 +40,7 @@ export function SketchCard({ project, canFavorite, footnote }: SketchCardProps) 
         </div>
 
         <div className="flex flex-1 flex-col p-4">
-          <h3 className="text-base font-medium text-ink">{project.title}</h3>
+          <h3 className="font-display text-base font-semibold text-ink">{project.title}</h3>
 
           <p className="mt-1 text-xs text-ink-500">
             {project.author_name ?? 'Unknown author'}

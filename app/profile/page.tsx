@@ -1,7 +1,5 @@
 import { redirect } from 'next/navigation';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
-import { getAccessDiagnostics } from '@/lib/accessDiagnostics';
-import { getViewer } from '@/lib/admin';
 import type { AvatarColor } from '@/lib/types';
 import { ProfileView } from '@/app/profile/profile-view';
 
@@ -23,10 +21,14 @@ async function getUserData() {
       .select('display_name, avatar_color')
       .eq('id', user.id)
       .maybeSingle<{ display_name: string | null; avatar_color: AvatarColor | null }>(),
+    // Rejected sketches are excluded: rejecting deletes the uploaded files,
+    // so the row is a tombstone rather than something the owner can open,
+    // play, or fix.
     supabase
       .from('projects')
       .select('*')
       .eq('owner_id', user.id)
+      .neq('review_status', 'rejected')
       .order('created_at', { ascending: false }),
   ]);
 
@@ -41,20 +43,12 @@ async function getUserData() {
 export default async function ProfilePage() {
   const data = await getUserData();
 
-  // "Access & setup" exists to tell an admin why /admin is refusing them. It
-  // means nothing to an ordinary user, and it reports the Supabase project ref
-  // and whether the server key works -- infrastructure detail that has no
-  // business rendering for someone who is not an admin.
-  const viewer = await getViewer();
-  const diagnostics = viewer?.role === 'admin' ? await getAccessDiagnostics() : null;
-
   return (
     <ProfileView
       user={data.user}
       nickname={data.nickname}
       avatarColor={data.avatarColor}
       projects={data.projects}
-      diagnostics={diagnostics}
     />
   );
 }

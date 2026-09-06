@@ -21,4 +21,19 @@ export const storagePaths = {
   data: (projectId: string) => `normalized/${projectId}/data`,
   thumbnail: (projectId: string, extension: string) =>
     `thumbnails/${projectId}/cover.${extension}`,
+  thumbnailPrefix: (projectId: string) => `thumbnails/${projectId}`,
 };
+
+/**
+ * Every prefix a project owns, for deleting all of its files at once.
+ *
+ * Derived from the id alone, so a project's objects stay findable even after
+ * the path columns on its row have been cleared.
+ */
+export function projectStoragePrefixes(projectId: string): string[] {
+  return [
+    storagePaths.raw(projectId),
+    storagePaths.normalized(projectId),
+    storagePaths.thumbnailPrefix(projectId),
+  ];
+}

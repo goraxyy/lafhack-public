@@ -18,14 +18,33 @@ const config: Config = {
           100: '#E5E5E5',
           50: '#F5F5F5',
         },
+        /**
+         * Lafayette maroon, sampled from lafayette.edu rather than guessed:
+         * #910029 is the college's brand colour and #820024 its darker
+         * state. Every accent in the app resolves through here, so the whole
+         * interface moves with these four values.
+         */
         accent: {
-          DEFAULT: '#2563EB',
-          600: '#2563EB',
-          700: '#1D4ED8',
-          50: '#EFF6FF',
+          DEFAULT: '#910029',
+          600: '#910029',
+          700: '#820024',
+          50: '#FCF2F4',
         },
       },
       fontFamily: {
+        /**
+         * Headings and the wordmark. Loaded by next/font in app/layout.tsx,
+         * which sets --font-display; the stack after it is what shows if that
+         * ever fails to load.
+         */
+        display: [
+          'var(--font-display)',
+          'ui-serif',
+          'Georgia',
+          'Cambria',
+          'Times New Roman',
+          'serif',
+        ],
         sans: [
           'ui-sans-serif',
           'system-ui',

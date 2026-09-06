@@ -1,12 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { STORAGE_BUCKET } from '@/lib/storage';
 import { GENRES, SEMESTERS, type Semester } from '@/lib/types';
-import { MAX_THUMBNAIL_BYTES } from '@/lib/uploadSecurity';
+import { isIgnorableUploadPath, MAX_THUMBNAIL_BYTES } from '@/lib/uploadSecurity';
+import { findSketchFolders, multipleSketchFoldersMessage } from '@/lib/sketchLayout';
 import { ThumbnailCropper } from '@/components/thumbnail-cropper';
+import { UploadThanks } from '@/components/upload-thanks';
 
 type Mode = 'folder' | 'zip';
 type Visibility = 'public' | 'private';
@@ -58,6 +59,7 @@ export default function UploadPage() {
   const [stage, setStage] = useState<UploadStage>('idle');
   const [message, setMessage] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [missingAssets, setMissingAssets] = useState<string[]>([]);
   const [uploadedBytes, setUploadedBytes] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState(0);
 
@@ -138,11 +140,30 @@ export default function UploadPage() {
     setUploadedFiles(0);
 
     try {
-      const manifest: FileManifestEntry[] = files.map((file) => ({
-        relativePath: normalizeRelativePath(file.webkitRelativePath || file.name),
-        size: file.size,
-        type: file.type,
-      }));
+      // Finder's leftovers never leave the browser. Filtering here also keeps
+      // the signed-URL count matching what actually gets sent.
+      const manifest: FileManifestEntry[] = files
+        .map((file) => ({
+          relativePath: normalizeRelativePath(file.webkitRelativePath || file.name),
+          size: file.size,
+          type: file.type,
+        }))
+        .filter((entry) => !isIgnorableUploadPath(entry.relativePath));
+
+      if (mode === 'folder' && manifest.length === 0) {
+        throw new Error('That folder has no sketch files in it.');
+      }
+
+      // A folder holding several sketches is refused by the compiler anyway.
+      // Catching it here saves uploading megabytes to be told so afterwards.
+      // A ZIP is only opened on the server, so that case is caught there.
+      const sketchFolders = findSketchFolders(
+        manifest.map((entry) => entry.relativePath)
+      );
+
+      if (sketchFolders.length > 1) {
+        throw new Error(multipleSketchFoldersMessage(sketchFolders));
+      }
 
       const initResponse = await fetch('/api/projects', {
         method: 'POST',
@@ -226,6 +247,10 @@ export default function UploadPage() {
         throw new Error(processPayload.error || 'Failed to queue compilation job.');
       }
 
+      setMissingAssets(
+        Array.isArray(processPayload.missingAssets) ? processPayload.missingAssets : []
+      );
+
       await pollProjectStatus(nextProjectId);
     } catch (error) {
       setStage('failed');
@@ -279,10 +304,11 @@ export default function UploadPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 sm:py-16">
-      <h1 className="text-3xl font-semibold text-ink">Upload a sketch</h1>
+      <h1 className="font-display text-3xl font-semibold text-ink">Upload a sketch</h1>
       <p className="mt-2 text-ink-500">
-        Upload a Processing sketch folder or ZIP archive. An admin plays and approves it
-        before it appears in the gallery.
+        Upload one Processing sketch — the folder that holds its <code>.pde</code>{' '}
+        tabs and its <code>data/</code>, or a ZIP of that folder. An admin plays and
+        approves it before it appears in the gallery.
       </p>
 
       <div className="mt-8 flex gap-2">
@@ -494,7 +520,7 @@ export default function UploadPage() {
         <button
           type="submit"
           disabled={isBusy}
-          className="rounded-md bg-ink px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isBusy ? 'Working...' : 'Upload sketch'}
         </button>
@@ -507,17 +533,7 @@ export default function UploadPage() {
       )}
 
       {stage === 'ready' && projectId && (
-        <div className="mt-6 rounded-md bg-green-50 p-4 text-sm text-green-800">
-          <p className="font-medium">Compiled successfully — now waiting on review.</p>
-          <p className="mt-1">
-            An admin has to play and approve it before it shows up in the gallery. You can
-            already{' '}
-            <Link className="font-medium underline" href={`/play/${projectId}`}>
-              play it yourself
-            </Link>
-            .
-          </p>
-        </div>
+        <UploadThanks projectId={projectId} missingAssets={missingAssets} />
       )}
     </main>
   );

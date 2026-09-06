@@ -124,7 +124,7 @@ export function FeedbackWidget() {
         <button
           type="submit"
           disabled={sending || !message.trim()}
-          className="inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-ink-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {sending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
           Send

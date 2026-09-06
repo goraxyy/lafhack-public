@@ -13,8 +13,6 @@ import {
   type AvatarColor,
   type Project,
 } from '@/lib/types';
-import type { AccessDiagnostics } from '@/lib/accessDiagnostics';
-import { AccessPanel } from '@/components/access-panel';
 import { ReviewBadge, StatusBadge } from '@/components/ui/badge';
 import { createClient } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
@@ -24,13 +22,11 @@ export function ProfileView({
   nickname,
   avatarColor,
   projects,
-  diagnostics,
 }: {
   user: SupabaseUser;
   nickname: string | null;
   avatarColor: AvatarColor | null;
   projects: Project[];
-  diagnostics: AccessDiagnostics | null;
 }) {
   // Saved state, kept separate from the draft so Cancel has something to
   // restore and a failed save does not leave the header showing a value the
@@ -184,7 +180,7 @@ export function ProfileView({
             ) : (
               <>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-semibold text-ink">{shownName}</h1>
+                  <h1 className="font-display text-2xl font-semibold text-ink">{shownName}</h1>
                   <button
                     type="button"
                     onClick={startEditing}
@@ -217,7 +213,7 @@ export function ProfileView({
       </div>
 
       <div className="mt-12">
-        <h2 className="text-lg font-medium text-ink">Your sketches</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">Your sketches</h2>
         <p className="mt-1 text-sm text-ink-500">
           A sketch reaches the gallery once an admin has played and approved it.
         </p>
@@ -275,7 +271,6 @@ export function ProfileView({
           </div>
         )}
       </div>
-      {diagnostics && <AccessPanel diagnostics={diagnostics} />}
     </div>
   );
 }

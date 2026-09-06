@@ -59,6 +59,7 @@ export function makeProcessingJsCompatible(source: string): CompatResult {
   result = renameFunctionsShadowedByFields(result, notes);
   result = fixCharConcatenation(result, notes);
   result = normalizeAssetReferences(result);
+  noteEmulatedDelay(result, notes);
 
   const assets = collectAssets(result);
 
@@ -632,6 +633,43 @@ export function normalizeAssetReferences(source: string): string {
     .replace(loaderPattern, '$1')
     .replace(/(\bnew\s+(?:SoundFile|AudioSample)\s*\(\s*\w+\s*,\s*")data\//gi, '$1')
     .replace(/(\bsaveTable\s*\([^,]+,\s*")data\//gi, '$1');
+}
+
+// ---------------------------------------------------------------------------
+// delay()
+// ---------------------------------------------------------------------------
+
+/**
+ * Records that the sketch calls delay(), which the player has to emulate.
+ *
+ * Processing.js ships delay() as a function that throws, so this used to end
+ * the sketch on the first call. public/processing-compat.js replaces it with a
+ * real pause, but a browser tab cannot be held indefinitely the way a desktop
+ * animation thread can, so a long delay() is shortened. Saying so in the
+ * bundle header means the one behaviour LafHack cannot reproduce exactly is
+ * written down next to the sketch it affects.
+ */
+function noteEmulatedDelay(source: string, notes: string[]): void {
+  const depths = braceDepths(source);
+  let calls = 0;
+
+  for (const match of source.matchAll(/(?<![.\w$])delay\s*\(/g)) {
+    const index = match.index;
+    if (index === undefined || depths[index] === -1) continue;
+    // A sketch that writes its own void delay() keeps it; PJS prefers the
+    // sketch's definition over the one on the default scope.
+    if (/\b(?:void|int|float|boolean)\s+$/.test(source.slice(Math.max(0, index - 16), index))) {
+      return;
+    }
+    calls += 1;
+  }
+
+  if (calls > 0) {
+    notes.push(
+      `Emulated ${calls} delay() call(s): Processing.js has none, so the player ` +
+        `holds the frame instead, within a budget that keeps the page responsive.`
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
